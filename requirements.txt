@@ -1,0 +1,12 @@
+fastapi==0.103.2
+uvicorn[standard]
+sqlalchemy
+databases[aiosqlite]
+python-dotenv
+pydantic-settings
+rich
+asgi-correlation-id
+logtail-python
+python-jose
+python-multipart
+passlib[bcrypt]
