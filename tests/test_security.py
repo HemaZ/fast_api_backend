@@ -1,5 +1,7 @@
 import pytest
+from fastapi import HTTPException
 from jose import jwt
+
 from storeapi import security
 
 
@@ -29,10 +31,23 @@ async def test_auth_user(registered_user: dict):
 @pytest.mark.anyio
 async def test_auth_user_not_found():
     with pytest.raises(security.HTTPException):
-        user = await security.auth_user("wrong@email.com", "dd")
+        _ = await security.auth_user("wrong@email.com", "dd")
 
 
 @pytest.mark.anyio
 async def test_auth_user_wrong_pass(registered_user: dict):
     with pytest.raises(security.HTTPException):
-        user = await security.auth_user(registered_user["email"], "wrong pass")
+        _ = await security.auth_user(registered_user["email"], "wrong pass")
+
+
+@pytest.mark.anyio
+async def test_get_valid_token(registered_user: dict):
+    token = security.create_access_token(registered_user["email"])
+    user = await security.get_current_user(token)
+    assert user.email == registered_user["email"]
+
+
+@pytest.mark.anyio
+async def test_get_invalid_token():
+    with pytest.raises(HTTPException):
+        _ = await security.get_current_user("token")
