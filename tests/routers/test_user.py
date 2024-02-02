@@ -21,8 +21,8 @@ async def test_register_existing_user(async_client: AsyncClient, registered_user
 
 
 @pytest.mark.anyio
-async def test_token_existing_user(async_client: AsyncClient, registered_user: dict):
-    response = await async_client.post("/token", json=registered_user)
+async def test_token_existing_user(async_client: AsyncClient, confirmed_user: dict):
+    response = await async_client.post("/token", json=confirmed_user)
     assert response.status_code == 200
     assert "access_token" in response.json()
 
@@ -36,4 +36,3 @@ async def test_token_non_existing_user(async_client: AsyncClient):
     }
     response = await async_client.post("/token", json=user_details)
     assert response.status_code == 401
-    assert "Couldn't validate user" in response.json()["detail"]

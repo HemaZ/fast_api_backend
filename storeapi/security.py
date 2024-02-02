@@ -1,6 +1,6 @@
 import datetime
 import logging
-from typing import Annotated
+from typing import Annotated, Literal
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -15,19 +15,63 @@ ALGORITHM = "HS256"
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
 pwd_context = CryptContext(schemes=["bcrypt"])
 
-credintials_exception = HTTPException(
-    status_code=status.HTTP_401_UNAUTHORIZED,
-    detail="Couldn't validate user",
-    headers={"WWW-Authenticate": "Bearer"},
-)
+
+def create_credintials_exception(detail: str) -> HTTPException:
+    return HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail=detail,
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+
+
+def access_token_expire_minutes() -> int:
+    return 30
+
+
+def confirm_token_expire_minutes() -> int:
+    return 1440
 
 
 def create_access_token(email: str):
     logger.debug("Creating access token for the email %s", email)
-    expire = datetime.datetime.now() + datetime.timedelta(minutes=30)
-    jwt_data = {"sub": email, "exp": expire}
+    expire = datetime.datetime.now() + datetime.timedelta(
+        minutes=access_token_expire_minutes()
+    )
+    jwt_data = {"sub": email, "exp": expire, "type": "access"}
     encoded_jwt = jwt.encode(jwt_data, key=SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+
+def create_confirmation_token(email: str):
+    logger.debug("Creating confirmation token for the email %s", email)
+    expire = datetime.datetime.now() + datetime.timedelta(
+        minutes=confirm_token_expire_minutes()
+    )
+    jwt_data = {
+        "sub": email,
+        "exp": expire,
+        "type": "confirmation",
+    }
+    encoded_jwt = jwt.encode(jwt_data, key=SECRET_KEY, algorithm=ALGORITHM)
+    return encoded_jwt
+
+
+def get_subject_for_token_type(
+    token: str, type: Literal["access", "confirmation"]
+) -> str:
+    try:
+        payload = jwt.decode(token, key=SECRET_KEY, algorithms=[ALGORITHM])
+    except ExpiredSignatureError as error:
+        raise create_credintials_exception("Token has expired") from error
+    except JWTError as error:
+        raise create_credintials_exception("Invalid token") from error
+    email = payload.get("sub")
+    if email is None:
+        raise create_credintials_exception("Token is missing sub field")
+    token_type = payload.get("type")
+    if token_type is None or token_type != type:
+        raise create_credintials_exception("Token has invalid type")
+    return email
 
 
 def get_password_hash(password: str) -> str:
@@ -51,27 +95,17 @@ async def auth_user(email: str, password: str):
     logger.debug("Auth user with email: %s", email)
     user = await get_user(email)
     if not user:
-        raise credintials_exception
+        raise create_credintials_exception("Invalid Email")
     if not verify_password(password, user.password):
-        raise credintials_exception
+        raise create_credintials_exception("Invalid password")
+    if not user.confirmed:
+        raise create_credintials_exception("User email is not confirmed")
     return user
 
 
 async def get_current_user(token: Annotated[str, Depends(oauth2_scheme)]):
-    try:
-        payload = jwt.decode(token, key=SECRET_KEY, algorithms=[ALGORITHM])
-        email = payload.get("sub")
-        if email is None:
-            raise credintials_exception
-    except ExpiredSignatureError as error:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Token has expired",
-            headers={"WWW-Authenticate": "Bearer"},
-        ) from error
-    except JWTError as error:
-        raise credintials_exception from error
+    email = get_subject_for_token_type(token, "access")
     user = await get_user(email)
     if user is None:
-        raise credintials_exception
+        raise create_credintials_exception("Invalid email")
     return user

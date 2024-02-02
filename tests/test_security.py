@@ -20,12 +20,10 @@ async def test_get_user(registered_user: dict):
 
 
 @pytest.mark.anyio
-async def test_auth_user(registered_user: dict):
-    user = await security.auth_user(
-        registered_user["email"], registered_user["password"]
-    )
-    assert user.email == registered_user["email"]
-    assert user.name == registered_user["name"]
+async def test_auth_user(confirmed_user: dict):
+    user = await security.auth_user(confirmed_user["email"], confirmed_user["password"])
+    assert user.email == confirmed_user["email"]
+    assert user.name == confirmed_user["name"]
 
 
 @pytest.mark.anyio
@@ -51,3 +49,23 @@ async def test_get_valid_token(registered_user: dict):
 async def test_get_invalid_token():
     with pytest.raises(HTTPException):
         _ = await security.get_current_user("token")
+
+
+def test_get_valid_token_type_access():
+    email = "email@test.com"
+    token = security.create_access_token(email)
+    assert email == security.get_subject_for_token_type(token, "access")
+
+
+def test_get_valid_token_type_confirmation():
+    email = "email@test.com"
+    token = security.create_confirmation_token(email)
+    assert email == security.get_subject_for_token_type(token, "confirmation")
+
+
+def test_expired_token(mocker):
+    mocker.patch("storeapi.security.access_token_expire_minutes", return_value=-1)
+    email = "email@test.com"
+    token = security.create_access_token(email)
+    with pytest.raises(HTTPException):
+        security.get_subject_for_token_type(token, "confirmation")
