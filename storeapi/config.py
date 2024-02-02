@@ -18,6 +18,7 @@ class GlobalConfig(BaseConfig):
 
 
 class DevConfig(GlobalConfig):
+    DATABASE_URL: Optional[str] = "sqlite:///data.db"
     model_config = SettingsConfigDict(env_prefix="DEV_")
 
 
