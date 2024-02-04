@@ -35,3 +35,18 @@ async def send_user_registartion_email(email: str, confirmation_url: str):
     confirmation_message = f"Hello {email}, Thanks for signing up, Please confirm your email using the url {confirmation_url}"
 
     return await send_simple_email(email, "Confirm Email", confirmation_message)
+
+
+async def _generate_image_api(prompot: str):
+    async with httpx.AsyncClient() as client:
+        response = await client.post(
+            "https://api.deepai.org/api/text2img",
+            data={
+                "text": prompot,
+            },
+            headers={"api-key": config.DEEP_AI_API_KEY},
+            timeout=60,
+        )
+        logger.debug(response)
+        response.raise_for_status()
+        return response.json()

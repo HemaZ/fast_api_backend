@@ -9,6 +9,7 @@ from storeapi.database import database
 from storeapi.logging_conf import configure_logging
 from storeapi.routers.post import router as post_router
 from storeapi.routers.user import router as user_router
+from storeapi.routers.generate_image import router as gen_router
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 app.include_router(post_router)
 app.include_router(user_router)
+app.include_router(gen_router)
 app.add_middleware(CorrelationIdMiddleware)
 
 
